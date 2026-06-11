@@ -3,7 +3,11 @@ import { v4 as uuidv4 } from 'uuid';
 
 // En desarrollo, el servidor está en localhost:3000
 // En producción, debería ser la URL del deploy.
-const URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
+const URL = import.meta.env.VITE_SERVER_URL || (import.meta.env.MODE === 'development' ? 'http://localhost:3000' : undefined);
+
+if (!URL) {
+    console.error('[Socket] VITE_SERVER_URL no está definida en producción. Configura VITE_SERVER_URL con la URL pública de tu backend.');
+}
 
 // Generar userId persistente
 const getUserId = () => {

@@ -13,16 +13,38 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+const CLIENT_URL = process.env.CLIENT_URL;
+
+// Allowed origins: prefer explicit CLIENT_URL; fall back to common localhost origins for dev
+const allowedOrigins = CLIENT_URL ? [CLIENT_URL] : [
+    'http://localhost:5173',
+    'http://localhost:3000'
+];
+
 const io = new Server(httpServer, {
     cors: {
-        origin: process.env.CLIENT_URL || "*",
-        methods: ["GET", "POST"]
+        origin: (origin, callback) => {
+            // allow non-browser clients (no origin) or allowedOrigins
+            if (!origin) return callback(null, true);
+            if (allowedOrigins.includes(origin)) return callback(null, true);
+            return callback(new Error('Not allowed by CORS'));
+        },
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
 const roomManager = new RoomManager(io);
 
-app.use(cors({ origin: process.env.CLIENT_URL || "*" }));
+// Strict CORS: only allow configured frontend origin (or localhost in dev)
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true
+}));
 app.use(express.json());
 
 // Endpoint de salud
@@ -45,6 +67,12 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
+
+// If running in production require CLIENT_URL to be set so only your frontend can connect
+if (process.env.NODE_ENV === 'production' && !CLIENT_URL) {
+    console.error('[Startup] CLIENT_URL must be set in production to restrict allowed origins. Exiting.');
+    process.exit(1);
+}
 
 // Al iniciar, limpiar todas las salas en DB porque el servidor arrancó fresco
 // (RoomManager vacío = no hay usuarios activos en ninguna sala)

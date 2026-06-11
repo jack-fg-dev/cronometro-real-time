@@ -8,12 +8,12 @@ datasource db {
 }
 
 model Room {
-  id        String   @id @default(cuid())
-  code      String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  timerConfig Int    @default(0)
-  messages Message[]
+  id          String    @id @default(cuid())
+  code        String    @unique
+  password    String
+  createdAt   DateTime  @default(now())
+  timerConfig Int       @default(0)
+  messages    Message[]
 }
 
 model Message {
@@ -21,6 +21,6 @@ model Message {
   content   String
   type      String
   createdAt DateTime @default(now())
-  room      Room     @relation(fields: [roomId], references: [id])
   roomId    String
+  room      Room     @relation(fields: [roomId], references: [id])
 }
