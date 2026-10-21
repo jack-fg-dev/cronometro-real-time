@@ -15,8 +15,8 @@ const app = express();
 const httpServer = createServer(app);
 const CLIENT_URL = process.env.CLIENT_URL;
 
-// Allowed origins: prefer explicit CLIENT_URL; fall back to common localhost origins for dev
-const allowedOrigins = CLIENT_URL ? [CLIENT_URL] : [
+// Allowed origins: prefer explicit CLIENT_URL; fall back to localhost in dev or allow all if not set yet
+const allowedOrigins = CLIENT_URL && CLIENT_URL !== '*' ? [CLIENT_URL] : [
     'http://localhost:5173',
     'http://localhost:3000'
 ];
@@ -24,8 +24,8 @@ const allowedOrigins = CLIENT_URL ? [CLIENT_URL] : [
 const io = new Server(httpServer, {
     cors: {
         origin: (origin, callback) => {
-            // allow non-browser clients (no origin) or allowedOrigins
-            if (!origin) return callback(null, true);
+            // allow if no origin (health checks, server-to-server) or CLIENT_URL is not configured / is wildcard
+            if (!origin || !CLIENT_URL || CLIENT_URL === '*') return callback(null, true);
             if (allowedOrigins.includes(origin)) return callback(null, true);
             return callback(new Error('Not allowed by CORS'));
         },
@@ -36,10 +36,10 @@ const io = new Server(httpServer, {
 
 const roomManager = new RoomManager(io);
 
-// Strict CORS: only allow configured frontend origin (or localhost in dev)
+// Strict CORS: allow frontend origin (or all if not configured yet)
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
+        if (!origin || !CLIENT_URL || CLIENT_URL === '*') return callback(null, true);
         if (allowedOrigins.includes(origin)) return callback(null, true);
         return callback(new Error('Not allowed by CORS'));
     },
@@ -68,10 +68,9 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 
-// If running in production require CLIENT_URL to be set so only your frontend can connect
+// Aviso si CLIENT_URL no está configurada aún en producción
 if (process.env.NODE_ENV === 'production' && !CLIENT_URL) {
-    console.error('[Startup] CLIENT_URL must be set in production to restrict allowed origins. Exiting.');
-    process.exit(1);
+    console.warn('[Startup] Advertencia: CLIENT_URL no está definida aún. Se aceptarán conexiones hasta configurar la URL de Vercel.');
 }
 
 // Al iniciar, limpiar todas las salas en DB porque el servidor arrancó fresco
