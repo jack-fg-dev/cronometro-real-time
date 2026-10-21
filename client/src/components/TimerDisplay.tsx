@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { formatTime } from '../lib/formatTime';
 import { cn } from '../lib/utils';
@@ -6,47 +6,56 @@ import { cn } from '../lib/utils';
 export const TimerDisplay = ({ size = 'lg' }: { size?: 'sm' | 'lg' }) => {
     const { timer } = useStore();
     const [displayTime, setDisplayTime] = useState(timer.value);
+    // Ref para poder reiniciar el loop desde el listener de visibilitychange
+    const timerRef = useRef(timer);
+    timerRef.current = timer;
 
     useEffect(() => {
         let animationFrameId: number;
 
+        const computeValue = (): number => {
+            const t = timerRef.current;
+            if (!t.running) return t.value;
+            const delta = Date.now() - t.lastActionTime;
+            if (t.type === 'countdown') {
+                return Math.max(0, t.value - delta);
+            }
+            return t.value + delta;
+        };
+
         const update = () => {
-            if (timer.running) {
-                const now = Date.now();
-                const delta = now - timer.lastActionTime;
-
-                let newVal = timer.value + delta;
-                if (timer.type === 'countdown') {
-                    // En countdown, el backend manda el "timer value" inicial o acumulado?
-                    // Según timerHandler.ts: getTimerValue devuelve el tiempo CALCULADO.
-                    // Pero el 'timer.value' que llega en el evento update es el valor calculado en ese momento?
-                    // timerHandler.ts: io.emit('timer:update', { value: getTimerValue(state), ... })
-                    // getTimerValue retorna el tiempo restante en countdown.
-                    // Entonces timer.value ES el tiempo restante al momento del evento.
-                    // Si es countdown, debemos RESTAR el delta desde que llegó el evento.
-                    newVal = Math.max(0, timer.value - delta); // Espera, timer.value ya decreció en el server?
-                    // Si el server manda { value: 5000, timestamp: T1 } y ahora es T1 + 1000.
-                    // El valor debería ser 4000.
-                    // timer.value es el valor snapshot en T1.Correcto.
-                } else {
-                    newVal = Math.max(0, timer.value + delta);
-                }
-
-                setDisplayTime(newVal);
+            if (timerRef.current.running) {
+                setDisplayTime(computeValue());
                 animationFrameId = requestAnimationFrame(update);
             } else {
-                setDisplayTime(timer.value);
+                setDisplayTime(timerRef.current.value);
             }
         };
 
         if (timer.running) {
-            update();
+            animationFrameId = requestAnimationFrame(update);
         } else {
             setDisplayTime(timer.value);
         }
 
+        // Cuando la pestaña vuelve a estar visible, el navegador había pausado rAF.
+        // Reiniciamos el loop y recalculamos el valor correcto en base a lastActionTime.
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                cancelAnimationFrame(animationFrameId);
+                // Snap inmediato al valor correcto antes de que arranque el nuevo loop
+                setDisplayTime(computeValue());
+                if (timerRef.current.running) {
+                    animationFrameId = requestAnimationFrame(update);
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', onVisibilityChange);
+
         return () => {
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            cancelAnimationFrame(animationFrameId);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
         };
     }, [timer.running, timer.value, timer.lastActionTime, timer.type]);
 

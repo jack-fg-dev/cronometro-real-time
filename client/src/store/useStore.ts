@@ -104,6 +104,15 @@ export const useStore = create<AppState>()(
                 isConnected: false,
                 messages: [],
                 usersCount: 0,
+                hostStatus: 'active',
+                gracePeriodEnd: null,
+                timer: {
+                    value: 0,
+                    running: false,
+                    type: 'stopwatch',
+                    initialTime: 0,
+                    lastActionTime: Date.now()
+                }
             }),
         }),
         {

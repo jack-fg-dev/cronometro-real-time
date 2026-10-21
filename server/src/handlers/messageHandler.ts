@@ -49,9 +49,18 @@ export const messageHandler = (io: Server, socket: Socket) => {
 
     socket.on('message:send', sendMessage);
 
-    socket.on('message:delete', ({ messageId }: { messageId: string }) => {
+    socket.on('message:delete', async ({ messageId }: { messageId: string }) => {
         const roomId = getRoom();
         if (!roomId) return;
-        io.to(roomId).emit('message:deleted', { messageId });
+        try {
+            await prisma.message.delete({
+                where: { id: messageId }
+            }).catch(() => {
+                // Si ya fue borrado, ignorar
+            });
+            io.to(roomId).emit('message:deleted', { messageId });
+        } catch (error) {
+            console.error('Error eliminando mensaje:', error);
+        }
     });
 };

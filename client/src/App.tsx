@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from './store/useStore';
 import { useSocketEvents } from './hooks/useSocketEvents';
+import { socket } from './lib/socket';
 import { Home } from './pages/Home';
 import { HostView } from './pages/HostView';
 import { ControllerView } from './pages/ControllerView';
@@ -38,6 +39,7 @@ function App() {
               variant="ghost"
               size="sm"
               onClick={() => {
+                socket.disconnect();
                 useStore.getState().logout();
                 window.location.reload(); // Force reload to ensure clean socket state
               }}

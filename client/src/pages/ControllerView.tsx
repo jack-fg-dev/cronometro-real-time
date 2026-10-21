@@ -73,13 +73,16 @@ export const ControllerView = () => {
                 <TimerDisplay size="sm" />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-                <Button onClick={handleStart} variant="primary" className="h-16 rounded-2xl">
-                    <Play className="w-8 h-8" fill="currentColor" />
-                </Button>
-                <Button onClick={handlePause} variant="secondary" className="h-16 rounded-2xl">
-                    <Pause className="w-8 h-8" fill="currentColor" />
-                </Button>
+            <div className="grid grid-cols-2 gap-4">
+                {!timer.running ? (
+                    <Button onClick={handleStart} variant="primary" className="h-16 rounded-2xl">
+                        <Play className="w-8 h-8" fill="currentColor" />
+                    </Button>
+                ) : (
+                    <Button onClick={handlePause} variant="secondary" className="h-16 rounded-2xl">
+                        <Pause className="w-8 h-8" fill="currentColor" />
+                    </Button>
+                )}
                 <Button onClick={handleReset} variant="outline" className="h-16 rounded-2xl">
                     <RotateCcw className="w-8 h-8" />
                 </Button>

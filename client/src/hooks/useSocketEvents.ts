@@ -29,6 +29,8 @@ export const useSocketEvents = () => {
                     code: state.roomCode,
                     password: state.password
                 });
+                // Pedir sincronización del timer tras reconectar
+                socket.emit('timer:sync');
             }
         };
 
@@ -59,7 +61,7 @@ export const useSocketEvents = () => {
             if (setLoading) setLoading(false);
         };
 
-        const onRoleUpdate = (data: { isHost: boolean, role: 'host' | 'controller' }) => {
+        const onRoleUpdate = (data: { isHost: boolean, role?: 'host' | 'controller' }) => {
             console.log('[Socket] Role updated:', data.isHost ? 'Host' : 'Controller');
             setRole(data.isHost ? 'host' : 'controller');
             if (data.isHost) {
@@ -79,6 +81,11 @@ export const useSocketEvents = () => {
 
         const onHostChanged = (data: { hostUserId: string }) => {
             console.log('[Socket] Host changed to:', data.hostUserId);
+            const localUserId = localStorage.getItem('cronometro_userId');
+            if (localUserId && data.hostUserId === localUserId) {
+                console.log('[Socket] Este cliente fue promovido a Host');
+                setRole('host');
+            }
             setHostStatus('active');
         };
 
@@ -91,7 +98,9 @@ export const useSocketEvents = () => {
             updateTimer({
                 value: data.value,
                 running: data.running,
-                lastActionTime: Date.now()
+                // Usamos el timestamp del SERVIDOR para que todos los clientes
+                // interpolacen desde el mismo punto de referencia.
+                lastActionTime: data.timestamp ?? Date.now()
             });
         };
 
@@ -177,5 +186,22 @@ export const useSocketEvents = () => {
             console.log('Restoring connection for existing session...');
             socket.connect();
         }
+    }, []);
+
+    // Cuando la pestaña vuelve a estar visible, pedir sincronización al servidor
+    // para corregir cualquier drift acumulado mientras el tab estaba en background.
+    useEffect(() => {
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && socket.connected) {
+                const state = useStore.getState();
+                if (state.roomCode) {
+                    console.log('[Visibility] Tab visible de nuevo — solicitando timer:sync');
+                    socket.emit('timer:sync');
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', onVisibilityChange);
     }, []);
 };

@@ -224,13 +224,14 @@ class RoomManager {
         if (!room) return;
 
         if (!room.timer.running) {
+            const now = Date.now();
             room.timer.running = true;
-            room.timer.startTime = Date.now();
+            room.timer.startTime = now;
 
             this.io.to(roomId).emit('timer:update', {
                 value: this.getTimerValue(roomId),
                 running: true,
-                timestamp: Date.now()
+                timestamp: now
             });
         }
     }
@@ -290,10 +291,13 @@ class RoomManager {
         const room = this.rooms.get(roomId);
         if (!room) return;
 
+        const now = Date.now();
         this.io.to(socketId).emit('timer:update', {
             value: this.getTimerValue(roomId),
             running: room.timer.running,
-            timestamp: Date.now()
+            // Si está corriendo, damos el timestamp ACTUAL para que el cliente
+            // calcule delta = 0 al arrancar (el value ya es el calculado ahora).
+            timestamp: now
         });
 
         this.io.to(socketId).emit('timer:config', {
@@ -308,7 +312,7 @@ class RoomManager {
                 if (userState.socketId === socketId) {
                     console.log(`[RoomManager] Socket ${socketId} (User ${userId}) disconnected from room ${roomId}`);
                     this.leaveRoom(roomId, userId);
-                    // A user might be in multiple rooms? Assuming 1 for now, but loop continues just in case
+                    return;
                 }
             }
         }

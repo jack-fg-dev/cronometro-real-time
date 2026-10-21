@@ -23,16 +23,31 @@ export const roomHandler = (io: Server, socket: Socket, roomManager: RoomManager
                 return;
             }
 
-            const code = generateRoomCode();
             const hashedPassword = await bcrypt.hash(password, 10);
 
-            //guardar en la base de datos
-            const room = await prisma.room.create({
-                data: {
-                    code,
-                    password: hashedPassword,
-                },
-            });
+            let room = null;
+            let attempts = 0;
+            const maxAttempts = 5;
+
+            while (!room && attempts < maxAttempts) {
+                try {
+                    const code = generateRoomCode();
+                    room = await prisma.room.create({
+                        data: {
+                            code,
+                            password: hashedPassword,
+                        },
+                    });
+                } catch (err: any) {
+                    attempts++;
+                    if (attempts >= maxAttempts) throw err;
+                }
+            }
+
+            if (!room) {
+                socket.emit('error', { message: 'Could not generate unique room code' });
+                return;
+            }
 
             // Initialize in RoomManager
             roomManager.createRoom(room.code, userId, socket.id);
@@ -98,7 +113,12 @@ export const roomHandler = (io: Server, socket: Socket, roomManager: RoomManager
             socket.emit('room:joined', {
                 roomId: roomDB.id,
                 code: roomDB.code,
-                timerConfig: currentRoomState?.timer || roomDB.timerConfig
+                timerConfig: currentRoomState?.timer || {
+                    type: 'stopwatch',
+                    initialTime: 0,
+                    running: false,
+                    value: 0
+                }
             });
 
             socket.emit('room:role_update', { isHost });
