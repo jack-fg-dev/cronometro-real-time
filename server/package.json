@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon",
     "build": "npx prisma generate && tsc",
-    "start": "node dist/index.js"
+    "start": "npx prisma migrate deploy && node dist/index.js"
   },
   "nodemonConfig": {
     "watch": [
